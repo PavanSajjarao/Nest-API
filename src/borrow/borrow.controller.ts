@@ -1,4 +1,4 @@
-import { Controller, Post, Param, Body, Get, Put } from '@nestjs/common';
+import { Controller, Post, Param, Body, Get, Put , Delete} from '@nestjs/common';
 import { BorrowService } from './borrow.service';
 import { BorrowBookDto } from './dto/borrow-book.dto';
 
@@ -29,4 +29,18 @@ export class BorrowController {
   async getBorrowedUsers(@Param('bookId') bookId: string) {
     return this.borrowService.getBorrowedUsers(bookId);
   }
+
+  @Get('history')
+  async getAllBorrowHistory() {
+  return this.borrowService.getAllBorrowHistory();
+  }
+
+  @Delete(':borrowId')
+  async deleteBorrowRecord(@Param('borrowId') borrowId: string) {
+    return this.borrowService.deleteBorrowRecord(borrowId);
+}
+@Get('dashboard')
+async getBorrowAnalytics() {
+  return this.borrowService.getBorrowAnalytics();
+}
 }

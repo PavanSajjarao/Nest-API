@@ -13,7 +13,7 @@ export class Borrow extends Document {
   borrowedDate: Date;
 
   @Prop({ type: Date, required: true })
-  dueDate: Date;
+  dueDate: Date; 
 
   @Prop({ type: Boolean, default: false })
   returned: boolean;
