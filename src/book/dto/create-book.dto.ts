@@ -1,11 +1,9 @@
-import { IsNotEmpty, IsString , IsNumber , IsEnum, IsEmpty } from "class-validator";
+// src/books/dto/create-book.dto.ts
+import { IsNotEmpty, IsString, IsNumber, IsEnum, IsEmpty } from "class-validator";
 import { Category } from "../schemas/book.schema";
 import { User } from "src/auth/schemas/user.schema";
 
-
-
 export class CreateBookDto {
-
     @IsNotEmpty()
     @IsString()
     readonly title: string;
@@ -16,18 +14,20 @@ export class CreateBookDto {
 
     @IsNotEmpty()
     @IsString()
-    readonly author : string;
+    readonly author: string;
+
+    @IsNotEmpty({ message: 'Image URL is required' })
+    @IsString()
+    readonly imageUrl: string;
 
     @IsNotEmpty()
     @IsNumber()
     readonly price: number;
 
     @IsNotEmpty()
-    @IsEnum(Category, {message: 'please enter correct category'})
+    @IsEnum(Category, { message: 'Please enter a correct category' })
     readonly category: Category;
 
-    @IsEmpty({message:"You Cannot Pass UserID"})  //user cannot pass in body so i put empty its been added automatically
-    readonly user:User;
-    
-
+    @IsEmpty({ message: "You cannot pass userID" })
+    readonly user: User;
 }

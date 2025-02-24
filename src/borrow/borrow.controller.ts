@@ -1,6 +1,10 @@
 import { Controller, Post, Param, Body, Get, Put , Delete} from '@nestjs/common';
 import { BorrowService } from './borrow.service';
 import { BorrowBookDto } from './dto/borrow-book.dto';
+import { AuthGuard } from '@nestjs/passport';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { Role } from 'src/auth/enums/role.enum';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
 
 @Controller('borrow')
 export class BorrowController {
@@ -39,8 +43,10 @@ export class BorrowController {
   async deleteBorrowRecord(@Param('borrowId') borrowId: string) {
     return this.borrowService.deleteBorrowRecord(borrowId);
 }
+
 @Get('dashboard')
 async getBorrowAnalytics() {
   return this.borrowService.getBorrowAnalytics();
 }
+
 }

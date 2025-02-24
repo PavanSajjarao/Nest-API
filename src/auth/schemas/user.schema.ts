@@ -22,6 +22,9 @@ export class User extends Document{
         default: [Role.User],
     })
     role : Role[]
+
+    @Prop({ default: true }) // Soft delete flag
+    isActive: boolean;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
