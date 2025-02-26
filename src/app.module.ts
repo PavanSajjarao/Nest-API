@@ -30,7 +30,5 @@ import mongoose from 'mongoose';
   providers: [AppService],
 })
 export class AppModule {
-  constructor() {
-    mongoose.set('debug', false); // ✅ Correct way to disable Mongoose debug logs
-  }
+ 
 }

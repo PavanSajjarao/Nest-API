@@ -5,13 +5,13 @@ import helmet from 'helmet';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  const logger = new Logger('HTTP');
+  // const logger = new Logger('HTTP');
 
-  // Log all incoming requests to identify the source
-  app.use((req, res, next) => {
-    logger.log(`Incoming request: ${req.method} ${req.url}`);
-    next();
-  });
+  // // Log all incoming requests to identify the source
+  // app.use((req, res, next) => {
+  //   logger.log(`Incoming request: ${req.method} ${req.url}`);
+  //   next();
+  // });
 
   app.use(helmet());
   app.enableCors({
