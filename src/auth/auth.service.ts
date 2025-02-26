@@ -72,7 +72,7 @@ export class AuthService {
    */
   async getAllUsers(): Promise<User[]> {
     try {
-      return await this.userModel.find();
+      return await this.userModel.find({isActive:true});
     } catch (error) {
       throw new InternalServerErrorException('Failed to retrieve users');
     }
