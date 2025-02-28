@@ -40,7 +40,8 @@ export class AuthService {
         });
     
         // Generate token
-        const token = this.jwtService.sign({ id: user._id });
+        const tokenPayload = { id: user._id, role: user.role };
+        const token = this.jwtService.sign(tokenPayload);
     
         return { token };
     }

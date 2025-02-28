@@ -2,11 +2,17 @@ import { Controller, Get, Param, Put, Body, Delete } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { User } from './schemas/user.schema';
 import { Role } from "./enums/role.enum";
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly authService: AuthService) {}
 
+
+  //add role later FIX
+  
   @Get()
   async getAllUsers(): Promise<User[]> {
     return this.authService.getAllUsers();

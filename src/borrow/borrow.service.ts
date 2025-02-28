@@ -52,6 +52,8 @@ export class BorrowService {
     return this.borrowModel.find({ bookId, returned: false }).populate('userId');
   }
 
+
+
   //Get all borrorwed data 
   async getAllBorrowHistory() {
     return this.borrowModel.find().populate('userId bookId');
@@ -74,32 +76,10 @@ export class BorrowService {
       dueDate: { $lt: new Date() }
     });
   
-    // Get Most Borrowed Books
-    const mostBorrowedBooks = await this.borrowModel.aggregate([
-      { $group: { _id: "$bookId", count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-      { $limit: 5 },
-      { $lookup: { from: "books", localField: "_id", foreignField: "_id", as: "bookDetails" } },
-      { $unwind: "$bookDetails" },
-      { $project: { title: "$bookDetails.title", count: 1 } }
-    ]);
-  
-    // Get Most Active Users
-    const mostActiveUsers = await this.borrowModel.aggregate([
-      { $group: { _id: "$userId", count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-      { $limit: 5 },
-      { $lookup: { from: "users", localField: "_id", foreignField: "_id", as: "userDetails" } },
-      { $unwind: "$userDetails" },
-      { $project: { name: "$userDetails.name", email: "$userDetails.email", count: 1 } }
-    ]);
-  
     return {
       totalBorrowed,
       totalReturned,
-      totalOverdue,
-      mostBorrowedBooks,
-      mostActiveUsers
+      totalOverdue
     };
   }
   

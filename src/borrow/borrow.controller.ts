@@ -10,7 +10,8 @@ import { RolesGuard } from 'src/auth/guards/roles.guard';
 export class BorrowController {
   constructor(private readonly borrowService: BorrowService) {}
   
-  @UseGuards(AuthGuard())
+  @Roles(Role.Moderator, Role.Admin , Role.User)
+  @UseGuards(AuthGuard(), RolesGuard)
   @Post(':userId/:bookId')
   async borrowBook(
     @Param('userId') userId: string,
@@ -20,24 +21,29 @@ export class BorrowController {
     return this.borrowService.borrowBook(userId, bookId, borrowBookDto);
   }
   
-  @UseGuards(AuthGuard())
+  
+  @Roles(Role.Moderator, Role.Admin , Role.User)
+  @UseGuards(AuthGuard(), RolesGuard)
   @Put(':userId/:bookId/return')
   async returnBook(@Param('userId') userId: string, @Param('bookId') bookId: string) {
     return this.borrowService.returnBook(userId, bookId);
   }
-
-  @UseGuards(AuthGuard())
+  
+  @Roles(Role.Moderator, Role.Admin , Role.User)
+  @UseGuards(AuthGuard(), RolesGuard)
   @Get('user/:userId')
   async getUserBorrowedBooks(@Param('userId') userId: string) {
     return this.borrowService.getUserBorrowedBooks(userId);
   }
 
+  @Roles(Role.Moderator, Role.Admin)
+  @UseGuards(AuthGuard(), RolesGuard)
   @UseGuards(AuthGuard())
   @Get('book/:bookId')
   async getBorrowedUsers(@Param('bookId') bookId: string) {
     return this.borrowService.getBorrowedUsers(bookId);
   }
-
+  
   @UseGuards(AuthGuard())
   @Roles(Role.Moderator, Role.Admin)
   @Get('history')
@@ -57,5 +63,7 @@ export class BorrowController {
 async getBorrowAnalytics() {
   return this.borrowService.getBorrowAnalytics();
 }
+
+
 
 }
