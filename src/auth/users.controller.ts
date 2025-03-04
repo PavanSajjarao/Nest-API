@@ -11,13 +11,13 @@ export class UsersController {
   constructor(private readonly authService: AuthService) {}
 
 
-  //add role later FIX
+  //add role later and add auth Guards FIX
   
   @Get()
   async getAllUsers(): Promise<User[]> {
     return this.authService.getAllUsers();
   }
-
+  
   @Get(':id')
   async getUserById(@Param('id') id: string): Promise<User> {
     return this.authService.getUserById(id);

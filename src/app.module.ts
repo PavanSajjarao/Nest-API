@@ -13,8 +13,8 @@ import mongoose from 'mongoose';
   imports: [
     ThrottlerModule.forRoot([
       {
-        ttl: 5, // Time window in seconds
-        limit: 3, // Max requests in time window
+        ttl: 5, // Time window in seconds time to live
+        limit: 3, // Max requests in time window 3 req.
       },
     ]),
     ConfigModule.forRoot({
