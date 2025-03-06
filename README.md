@@ -192,6 +192,155 @@ async signUp(signUpDto: SignUpDto) {
 }
 ```
 
+### User Registration and Role Management
+
+#### 1. User Registration Process
+
+When a user registers, the following steps occur:
+
+```typescript
+// 1. User sends registration request
+@Post('/signup')
+signUp(@Body() signUpDto: SignUpDto): Promise<{ token: string }> {
+    return this.authService.signUp(signUpDto);
+}
+
+// 2. AuthService processes registration
+async signUp(signUpDto: SignUpDto) {
+    // Check if user already exists
+    const userExists = await this.userModel.findOne({ email: signUpDto.email });
+    if (userExists) {
+        throw new ConflictException('User already exists');
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(signUpDto.password, 10);
+
+    // Create new user with default role
+    const user = await this.userModel.create({
+        ...signUpDto,
+        password: hashedPassword,
+        role: Role.User  // Default role assignment
+    });
+
+    // Generate JWT token
+    const token = this.jwtService.sign({ id: user._id });
+
+    return { token };
+}
+```
+
+#### 2. User Schema Definition
+
+```typescript
+// src/auth/schemas/user.schema.ts
+@Schema()
+export class User {
+    @Prop({ required: true })
+    name: string;
+
+    @Prop({ required: true, unique: true })
+    email: string;
+
+    @Prop({ required: true })
+    password: string;
+
+    @Prop({ type: String, enum: Role, default: Role.User })
+    role: Role;
+}
+```
+
+#### 3. Registration DTO
+
+```typescript
+// src/auth/dto/signUp.dto.ts
+export class SignUpDto {
+    @IsNotEmpty()
+    @IsString()
+    name: string;
+
+    @IsNotEmpty()
+    @IsEmail()
+    email: string;
+
+    @IsNotEmpty()
+    @IsString()
+    @MinLength(6)
+    password: string;
+}
+```
+
+#### 4. Role Assignment Process
+
+1. **Default Role Assignment**:
+   - All new users are automatically assigned the `User` role
+   - This is handled in the `signUp` method of `AuthService`
+
+2. **Role Modification**:
+   - Only administrators can modify user roles
+   - Role changes are tracked and logged
+
+3. **Role Validation**:
+   - Roles must be one of: `User`, `Moderator`, or `Admin`
+   - Invalid role assignments are rejected
+
+#### 5. Registration Flow
+
+```
+User → POST /auth/signup
+↓
+Validate SignUpDto
+↓
+Check if user exists
+↓
+Hash password
+↓
+Create user with default role (User)
+↓
+Generate JWT token
+↓
+Return token to user
+```
+
+#### 6. Example Registration Request
+
+```json
+// POST /auth/signup
+{
+    "name": "John Doe",
+    "email": "john@example.com",
+    "password": "securepassword123"
+}
+
+// Response
+{
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+#### 7. Role-Based Registration Rules
+
+1. **User Registration**:
+   - Can register themselves
+   - Gets default `User` role
+   - Cannot specify their own role
+
+2. **Admin Registration**:
+   - Can only be created by existing admins
+   - Requires special admin creation endpoint
+   - Must be explicitly assigned `Admin` role
+
+3. **Moderator Registration**:
+   - Can only be created by admins
+   - Must be explicitly assigned `Moderator` role
+
+#### 8. Error Handling During Registration
+
+- 400 Bad Request: Invalid input data
+- 409 Conflict: Email already exists
+- 401 Unauthorized: Invalid credentials
+- 403 Forbidden: Unauthorized role assignment
+
 ### Book Endpoints
 
 #### Create Book
@@ -295,3 +444,155 @@ src/
 ## License
 
 This project is licensed under the UNLICENSED License.
+
+### Authentication Module Configuration
+
+#### 1. Auth Module Setup
+
+The authentication module is configured with Passport and JWT:
+
+```typescript
+// src/auth/auth.module.ts
+@Module({
+  imports: [
+    // Register Passport with JWT as default strategy
+    PassportModule.register({ defaultStrategy: 'jwt' }),
+
+    // Configure JWT Module
+    JwtModule.registerAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        return {
+          secret: config.get<string>('JWT_SECRET'),
+          signOptions: {
+            expiresIn: config.get<string | number>('JWT_EXPIRES'),
+          },
+        };
+      },
+    }),
+
+    // Register MongoDB User Schema
+    MongooseModule.forFeature([
+      { name: 'User', schema: UserSchema }
+    ])
+  ],
+  controllers: [AuthController, UsersController],
+  providers: [AuthService, JwtStrategy],
+  exports: [JwtStrategy, PassportModule],  // Export for use in other modules
+})
+export class AuthModule {}
+```
+
+#### 2. Passport Configuration
+
+1. **Install Required Packages**:
+```bash
+npm install --save @nestjs/passport passport passport-jwt
+npm install --save-dev @types/passport-jwt
+```
+
+2. **JWT Strategy Setup**:
+```typescript
+// src/auth/jwt.strategy.ts
+@Injectable()
+export class JwtStrategy extends PassportStrategy(Strategy) {
+    constructor(
+        @InjectModel(User.name)
+        private userModel: Model<User>
+    ) {
+        super({
+            jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+            secretOrKey: process.env.JWT_SECRET
+        });
+    }
+
+    async validate(payload: any) {
+        const { id } = payload;
+        const user = await this.userModel.findById(id);
+        
+        if (!user) {
+            throw new UnauthorizedException();
+        }
+        return user;
+    }
+}
+```
+
+3. **Environment Configuration**:
+```env
+# .env
+JWT_SECRET=your_jwt_secret_key
+JWT_EXPIRES=24h
+```
+
+#### 3. Authentication Flow with Passport
+
+1. **Request Flow**:
+```
+Client Request → PassportModule → JwtStrategy → AuthGuard → Route Handler
+```
+
+2. **Token Extraction**:
+- Passport automatically extracts JWT from Authorization header
+- Format: `Authorization: Bearer <token>`
+
+3. **Token Validation**:
+- JwtStrategy validates token signature
+- Checks token expiration
+- Retrieves user from database
+
+4. **User Attachment**:
+- Validated user is attached to request object
+- Available in route handlers via `@Req()` decorator
+
+#### 4. Using Passport in Other Modules
+
+1. **Import AuthModule**:
+```typescript
+// book.module.ts
+@Module({
+  imports: [
+    AuthModule,  // Import to use authentication
+    MongooseModule.forFeature([{ name: 'Book', schema: BookSchema }])
+  ],
+  // ...
+})
+export class BookModule {}
+```
+
+2. **Use Guards in Controllers**:
+```typescript
+@Controller('books')
+export class BookController {
+    @UseGuards(AuthGuard())  // Use Passport authentication
+    @Get()
+    async getAllBooks() {
+        // Access authenticated user
+        return this.bookService.findAll();
+    }
+}
+```
+
+#### 5. Passport Configuration Options
+
+1. **JWT Strategy Options**:
+```typescript
+{
+    jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+    secretOrKey: process.env.JWT_SECRET,
+    ignoreExpiration: false,  // Check token expiration
+    // Additional options can be added here
+}
+```
+
+2. **Token Extraction Methods**:
+```typescript
+// From Authorization header
+ExtractJwt.fromAuthHeaderAsBearerToken()
+
+// From query string
+ExtractJwt.fromUrlQueryParameter('token')
+
+// From cookie
+ExtractJwt.fromCookie('jwt')
+```
