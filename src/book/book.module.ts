@@ -4,8 +4,8 @@ import { BookService } from './book.service';
 import { MongooseModule } from '@nestjs/mongoose';
 import { BookSchema } from './schemas/book.schema';
 import { AuthModule } from '../auth/auth.module';
-import { APP_GUARD } from '@nestjs/core';
-import { ThrottlerGuard } from '@nestjs/throttler';
+// import { APP_GUARD } from '@nestjs/core';
+// import { ThrottlerGuard } from '@nestjs/throttler';
  
 @Module({
   imports:[ 
@@ -14,10 +14,10 @@ import { ThrottlerGuard } from '@nestjs/throttler';
   controllers: [BookController],
   providers: [
     BookService,
-    {
-      provide: APP_GUARD,
-      useClass: ThrottlerGuard,
-    }
+    // {
+    //   provide: APP_GUARD,  //APP_GUARD is a built-in provider token that allows you to register a guard globally instead of applying it to each controller or route manually.
+    //   useClass: ThrottlerGuard,
+    // }
   ]
 })
 export class BookModule {}

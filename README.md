@@ -1,91 +1,297 @@
-1.strict validation required for all routes
+# Library Management System API
 
-2.Error Handling Mechanism for services Handling Null cases what if documents dosent receive what if id is wrong
+A robust NestJS-based REST API for managing a library system with authentication, book management, and borrowing functionality.
 
-3 . Validate ObjectId before querying
+## Features
 
-4 . Imporve DTOS(both create and update) and check the dbobject id before reaching actual function
+- 🔐 JWT Authentication
+- 📚 Book Management
+- 📖 Borrowing System
+- 👥 Role-based Authorization
+- 📝 Input Validation
+- 🔒 Security Features
+- 📤 File Upload Support
+- 🗑️ Soft Delete Functionality
 
-5.Path verificatiom make sure follow one type.
+## Prerequisites
 
-<!-- Take Care about pipes using class validator and transfomer -->
-1.install both packages
-2.i am using the validation pipe intialise globally in main.ts file
-3.goto DTO add validations like @IsNotEmpty like that
+- Node.js (v16 or higher)
+- MongoDB
+- npm or yarn
 
-<!-- Setting up the autorization using passport js-->
-npm install --save @nestjs/passport passport passport-local
-npm install --save-dev @types/passport-local
-<!-- intialise the auth module -->
-nest g module auth
-add controller to it
-nest g controller auth --no-spec
-nest g service auth --no-spec
+## Installation
 
-<!-- Create schema -->
-<!-- HeadOver to auth Module and intilise monggoseModule.forFeature([{name:className , schema: schemaname}]) -->
-<!-- after updating that we are doing auth through passport so import passport in main.ts imports array and set the defaultStrategy for register -->
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd nest-api
+```
 
-<!-- install jwt module npm install @nestjs/jwt and import it in imports module AND SETUP IT-->
+2. Install dependencies:
+```bash
+npm install
+```
 
-<!-- write the signup and login functinoality -->
+3. Create a `.env` file in the root directory with the following variables:
+```env
+MONGODB_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret
+JWT_EXPIRATION=24h
+```
 
-<!-- implement the jwt startegy by extending pasport stargey acces the jwttoken from payload and validate it and return the user id -->
+4. Start the development server:
+```bash
+npm run start:dev
+```
 
-<!-- export the auth module to use in other book module import it book module use authguards(passportauth gards) -->
+## API Documentation
 
-<!-- test the endppoints make post as authorized -->
+### Authentication Endpoints
 
-<!-- now change the book schema add user because those who created by providing user:User type is mongoose.Schema.Types.ObjectId -->
+#### Register
+- **POST** `/auth/register`
+- Register a new user
+- Required fields: email, password, name
+- Returns: JWT token
 
-<!-- in contoller collect the userid from @req() req  req.user for @post send it to service accept there any assign to the obj before storing. while assigning the user_id i got error so in that we import the document in schema-->
+#### Login
+- **POST** `/auth/login`
+- Login with email and password
+- Required fields: email, password
+- Returns: JWT token
 
-<!-- role based  -->
-1. create a enum folder in auth module create role enum 
-2. attach enum to the metdata just have to set our role with these set metadata and then we can acess this metadata which is roles with our reflactor helper class. so to do this process create decorators folder in auth;
-3. Now we have to create our guard which we simply implement canActive interface and we override it use reflactor class to get meta data.
-4. Go to schema and add role:Role[] define the constraints.
-5. go book controller and protectusing @Roles update this  @Roles(Role.Moderator, Role.Admin)
-    @UseGuards(AuthGuard() , RolesGuard)
+### Authentication and Authorization Flow
 
-6. if we test these endpoint it dosent work because you need to send the role to db to store we need to modfiy the auth service.ts and add role to signUpDTO and send to db
+#### 1. Role-Based Authorization System
 
+The API implements a three-tier role system:
+```typescript
+export enum Role {
+    User = 'user',      // Regular users
+    Admin = 'admin',    // Full system access
+    Moderator = 'moderator'  // Limited administrative access
+}
+```
 
-<!-- File Uploads -->
-1.create the put route add auth gaurds.
-2.implement the Interceptors
+#### 2. Role Guard Implementation
 
+The `RolesGuard` works in conjunction with `AuthGuard` to provide role-based access control:
 
+```typescript
+@Injectable()
+export class RolesGuard implements CanActivate {
+    constructor(private reflector: Reflector) {}
 
-<!-- soft delete  -->
+    canActivate(context: ExecutionContext): boolean {
+        // This line retrieves the roles we set with @Roles()
+        const requireRoles = this.reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
+            context.getHandler(),  // Looks for metadata on the specific route
+            context.getClass(),    // Looks for metadata on the controller class
+        ]);
 
+        // If no roles were specified with @Roles(), allow access
+        if(!requireRoles) return true;
 
-<!-- frontend -->
-1. signup , login
-2. retrive the data from backend and render it in frontend
+        // Get the user from the request (attached by AuthGuard)
+        const request = context.switchToHttp().getRequest();
+        const user = request.user;
 
+        // Check if user has any of the required roles
+        return matchRoles(requireRoles, user?.role);
+    }
+}
+```
 
+#### 3. Complete Request Flow
 
+When accessing a protected route with role requirements:
 
+```
+User Request → AuthGuard → JwtStrategy → RolesGuard → Route Handler
+```
 
+1. **Authentication Phase**:
+   - Request hits protected route
+   - `AuthGuard` intercepts request
+   - Extracts JWT token from header
+   - `JwtStrategy` validates token
+   - User object attached to request
 
+2. **Authorization Phase**:
+   - `RolesGuard` checks route metadata
+   - Gets required roles from `@Roles()` decorator
+   - Compares user's roles with required roles
+   - Allows/denies access based on role match
 
+3. **Example Protected Route**:
+```typescript
+@Controller('books')
+export class BookController {
+    @Get()
+    @Roles(Role.Moderator, Role.Admin, Role.User)  // Define allowed roles
+    @UseGuards(AuthGuard(), RolesGuard)  // Apply both guards
+    async getAllBooks() {
+        return this.bookService.findAll();
+    }
 
+    @Post()
+    @Roles(Role.Moderator, Role.Admin)  // Only moderators and admins
+    @UseGuards(AuthGuard(), RolesGuard)
+    async createBook() {
+        // Create book logic
+    }
+}
+```
 
+#### 4. Role-Based Access Control Examples
 
+1. **Public Access**:
+```typescript
+@Get()
+@Roles(Role.User, Role.Moderator, Role.Admin)
+async getAllBooks() {
+    // All authenticated users can access
+}
+```
 
+2. **Moderator and Admin Only**:
+```typescript
+@Post()
+@Roles(Role.Moderator, Role.Admin)
+async createBook() {
+    // Only moderators and admins can create
+}
+```
 
+3. **Admin Only**:
+```typescript
+@Delete()
+@Roles(Role.Admin)
+async deleteBook() {
+    // Only admins can delete
+}
+```
 
-<!-- Todo -->
+#### 5. Error Handling for Authorization
 
-1. Test all endpoints basic test -ok -----test case tests
+- 401 Unauthorized: Invalid or missing JWT token
+- 403 Forbidden: Valid token but insufficient roles
+- 400 Bad Request: Invalid role assignment
 
-2. (Borrow Module):
-    2.0 --> Schema , DTO's flow validations
-    2.1 --> Due Date Generation  can Generate in frontend
-    2.2 -->soft delete 
-    2.3 --> returning book ---add soft del url
-    2.4--> Add Roleguards AuthGuards Helmet Rate limit
-    2.5 --> validate the error handling mechanism
+#### 6. Role Assignment During Registration
 
-3. setup frontend(for login / logout routes)
+When a user registers, they are assigned a default role:
+```typescript
+// In auth.service.ts
+async signUp(signUpDto: SignUpDto) {
+    const user = await this.userModel.create({
+        ...signUpDto,
+        role: Role.User  // Default role assignment
+    });
+    // ... rest of signup logic
+}
+```
+
+### Book Endpoints
+
+#### Create Book
+- **POST** `/books`
+- Create a new book
+- Protected route (requires authentication)
+- Required fields: title, author, ISBN
+
+#### Get All Books
+- **GET** `/books`
+- Retrieve all books
+- Public route
+
+#### Get Book by ID
+- **GET** `/books/:id`
+- Retrieve a specific book
+- Public route
+
+#### Update Book
+- **PUT** `/books/:id`
+- Update book details
+- Protected route (requires authentication)
+
+#### Delete Book
+- **DELETE** `/books/:id`
+- Soft delete a book
+- Protected route (requires authentication)
+
+### Borrowing Endpoints
+
+#### Borrow Book
+- **POST** `/borrow`
+- Borrow a book
+- Protected route (requires authentication)
+- Required fields: bookId, dueDate
+
+#### Return Book
+- **PUT** `/borrow/:id/return`
+- Return a borrowed book
+- Protected route (requires authentication)
+
+#### Get Borrowing History
+- **GET** `/borrow/history`
+- Get user's borrowing history
+- Protected route (requires authentication)
+
+## Security Features
+
+- JWT Authentication
+- Role-based Authorization (Admin, Moderator, User)
+- Password Hashing
+- Rate Limiting
+- Helmet Security Headers
+- Input Validation using class-validator
+- Request Transformation using class-transformer
+
+## Testing
+
+Run the test suite:
+```bash
+# Unit tests
+npm run test
+
+# e2e tests
+npm run test:e2e
+
+# Test coverage
+npm run test:cov
+```
+
+## Development
+
+```bash
+# Development mode
+npm run start:dev
+
+# Production mode
+npm run build
+npm run start:prod
+```
+
+## Project Structure
+
+```
+src/
+├── auth/           # Authentication module
+├── book/           # Book management module
+├── borrow/         # Borrowing system module
+├── app.module.ts   # Main application module
+└── main.ts         # Application entry point
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a new Pull Request
+
+## License
+
+This project is licensed under the UNLICENSED License.

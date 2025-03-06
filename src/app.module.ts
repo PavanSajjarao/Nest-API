@@ -11,12 +11,12 @@ import mongoose from 'mongoose';
 
 @Module({
   imports: [
-    ThrottlerModule.forRoot([
-      {
-        ttl: 5, // Time window in seconds time to live
-        limit: 3, // Max requests in time window 3 req.
-      },
-    ]),
+    // ThrottlerModule.forRoot([
+    //   {
+    //     ttl: 5, // Time window in seconds time to live
+    //     limit: 3, // Max requests in time window 3 req.
+    //   },
+    // ]),
     ConfigModule.forRoot({
       envFilePath: '.env',
       isGlobal: true,

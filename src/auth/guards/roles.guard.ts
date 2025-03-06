@@ -8,7 +8,7 @@ import { ROLES_KEY } from "../decorators/roles.decorator";
 export class RolesGuard implements CanActivate{ //canActive is an interface so we need to override methods
      
     constructor(
-        private reflector: Reflector //HelperClass to access our metaData
+        private reflector: Reflector //HelperClass to access(retrive) our metaData
      ){}
 
     canActivate(context: ExecutionContext): boolean {

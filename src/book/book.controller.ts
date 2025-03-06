@@ -1,4 +1,4 @@
-// src/books/book.controller.ts
+
 import { Body, Controller, Get, Param, Post, Put, Delete, Query, UseGuards, Req, UseInterceptors, UploadedFiles } from '@nestjs/common';
 import { BookService } from './book.service';
 import { Book } from './schemas/book.schema';
@@ -43,8 +43,8 @@ export class BookController {
         return this.bookService.updateById(id, book);
     }
 
-    @Roles(Role.Moderator, Role.Admin)
-    @UseGuards(AuthGuard(), RolesGuard)
+    // @Roles(Role.Moderator, Role.Admin)
+    @UseGuards(AuthGuard())   
     @Delete(':id')
     async deleteBook(@Param('id') id: string): Promise<Book> {
         return this.bookService.deleteById(id);
