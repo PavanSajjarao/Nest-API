@@ -2,6 +2,16 @@
 
 A robust NestJS-based REST API for managing a library system with authentication, book management, and borrowing functionality.
 
+## Tech Stack
+
+- **Framework**: NestJS
+- **Database**: MongoDB with Mongoose
+- **Authentication**: JWT with Passport.js
+- **Validation**: class-validator, class-transformer
+- **Security**: Helmet, Rate Limiting
+- **File Upload**: Multer
+- **Testing**: Jest
+
 ## Features
 
 - 🔐 JWT Authentication
@@ -88,6 +98,58 @@ npm run start:dev
 export class AuthModule {}
 ```
 
+#### User Schema
+```typescript
+// src/auth/schemas/user.schema.ts
+@Schema()
+export class User {
+    @Prop({ required: true })
+    name: string;
+
+    @Prop({ required: true, unique: true })
+    email: string;
+
+    @Prop({ required: true })
+    password: string;
+
+    @Prop({ type: String, enum: Role, default: Role.User })
+    role: Role;
+}
+```
+
+#### Authentication DTOs
+
+1. **SignUp DTO**:
+```typescript
+export class SignUpDto {
+    @IsNotEmpty()
+    @IsString()
+    name: string;
+
+    @IsNotEmpty()
+    @IsEmail()
+    email: string;
+
+    @IsNotEmpty()
+    @IsString()
+    @MinLength(6)
+    password: string;
+}
+```
+
+2. **Login DTO**:
+```typescript
+export class LoginDto {
+    @IsNotEmpty()
+    @IsEmail()
+    email: string;
+
+    @IsNotEmpty()
+    @IsString()
+    password: string;
+}
+```
+
 #### Authentication Flows
 
 1. **Registration Flow**:
@@ -125,6 +187,33 @@ Return token to user
 3. **Protected Route Access Flow**:
 ```
 User Request → AuthGuard → JwtStrategy → RolesGuard → Route Handler
+```
+
+#### JWT Strategy Implementation
+```typescript
+// src/auth/jwt.strategy.ts
+@Injectable()
+export class JwtStrategy extends PassportStrategy(Strategy) {
+    constructor(
+        @InjectModel(User.name)
+        private userModel: Model<User>
+    ) {
+        super({
+            jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+            secretOrKey: process.env.JWT_SECRET
+        });
+    }
+
+    async validate(payload: any) {
+        const { id } = payload;
+        const user = await this.userModel.findById(id);
+        
+        if (!user) {
+            throw new UnauthorizedException();
+        }
+        return user;
+    }
+}
 ```
 
 #### Authentication Endpoints
@@ -190,24 +279,258 @@ export class Book {
 }
 ```
 
+#### Book DTOs
+
+1. **Create Book DTO**:
+```typescript
+export class CreateBookDto {
+    @IsNotEmpty()
+    @IsString()
+    readonly title: string;
+
+    @IsNotEmpty()
+    @IsString()
+    readonly description: string;
+
+    @IsNotEmpty()
+    @IsString()
+    readonly author: string;
+
+    @IsNotEmpty()
+    @IsString()
+    readonly imageUrl: string;
+
+    @IsNotEmpty()
+    @IsNumber()
+    readonly price: number;
+
+    @IsNotEmpty()
+    @IsEnum(Category)
+    readonly category: Category;
+
+    @IsEmpty({ message: "You cannot pass userID" })
+    readonly user: User;
+}
+```
+
+2. **Update Book DTO**:
+```typescript
+export class updateBookDto {
+    @IsOptional()
+    @IsString()
+    readonly title?: string;
+
+    @IsOptional()
+    @IsString()
+    readonly description?: string;
+
+    @IsOptional()
+    @IsString()
+    readonly author?: string;
+
+    @IsOptional()
+    @IsString()
+    readonly imageUrl?: string;
+
+    @IsOptional()
+    @IsNumber()
+    readonly price?: number;
+
+    @IsOptional()
+    @IsEnum(Category)
+    readonly category?: Category;
+
+    @IsEmpty({ message: "You cannot pass userID" })
+    readonly user: User;
+}
+```
+
+#### Book Service Implementation
+```typescript
+// src/book/book.service.ts
+@Injectable()
+export class BookService {
+    constructor(
+        @InjectModel(Book.name) private bookModel: Model<Book>
+    ) {}
+
+    // Find all books with pagination and search
+    async findAll(query: ExpressQuery): Promise<Book[]> {
+        const resPerPage = 10;
+        const currentPage = Number(query.page) || 1;
+        const skip = resPerPage * (currentPage - 1);
+
+        const keyword = query.keyword ? {
+            title: {
+                $regex: query.keyword,
+                $options: 'i'
+            }
+        } : {};
+
+        return await this.bookModel
+            .find({ ...keyword })
+            .limit(resPerPage)
+            .skip(skip);
+    }
+
+    // Create new book with user association
+    async create(bookDto: CreateBookDto, user: User): Promise<Book> {
+        const data = { ...bookDto, user: user._id };
+        return await this.bookModel.create(data);
+    }
+
+    // Find book by ID with validation
+    async findById(id: string): Promise<Book> {
+        if (!Types.ObjectId.isValid(id)) {
+            throw new BadRequestException(`Invalid book ID: ${id}`);
+        }
+
+        const book = await this.bookModel.findById(id).exec();
+        if (!book) {
+            throw new NotFoundException(`Book with ID ${id} not found`);
+        }
+        return book;
+    }
+
+    // Update book with validation
+    async updateById(id: string, book: Partial<Book>): Promise<Book> {
+        if (!Types.ObjectId.isValid(id)) {
+            throw new BadRequestException(`Invalid book ID: ${id}`);
+        }
+
+        const res = await this.bookModel.findByIdAndUpdate(id, book, {
+            new: true,
+            runValidators: true,
+        });
+
+        if (!res) {
+            throw new NotFoundException(`Book with ID ${id} not found`);
+        }
+        return res;
+    }
+
+    // Delete book with validation
+    async deleteById(id: string): Promise<Book> {
+        if (!Types.ObjectId.isValid(id)) {
+            throw new BadRequestException(`Invalid book ID: ${id}`);
+        }
+
+        const book = await this.bookModel.findByIdAndDelete(id);
+        if (!book) {
+            throw new NotFoundException(`Book with ID ${id} not found`);
+        }
+        return book;
+    }
+}
+```
+
+#### Book Controller Implementation
+```typescript
+// src/book/book.controller.ts
+@Controller('books')
+export class BookController {
+    constructor(private bookService: BookService) {}
+
+    @Get()
+    @Roles(Role.Moderator, Role.Admin, Role.User)
+    @UseGuards(AuthGuard(), RolesGuard)
+    async getAllBooks(@Query() query: ExpressQuery): Promise<Book[]> {
+        return this.bookService.findAll(query);
+    }
+
+    @Post()
+    @Roles(Role.Moderator, Role.Admin)
+    @UseGuards(AuthGuard(), RolesGuard)
+    async createBook(@Body() book: CreateBookDto, @Req() req): Promise<Book> {
+        return this.bookService.create(book, req.user);
+    }
+
+    @Get(':id')
+    @Roles(Role.Moderator, Role.Admin, Role.User)
+    @UseGuards(AuthGuard(), RolesGuard)
+    async getBookById(@Param('id') id: string): Promise<Book> {
+        return this.bookService.findById(id);
+    }
+
+    @Put(':id')
+    @Roles(Role.Moderator, Role.Admin)
+    @UseGuards(AuthGuard(), RolesGuard)
+    async updateBook(@Param('id') id: string, @Body() book: updateBookDto): Promise<Book> {
+        return this.bookService.updateById(id, book);
+    }
+
+    @Delete(':id')
+    @UseGuards(AuthGuard())
+    async deleteBook(@Param('id') id: string): Promise<Book> {
+        return this.bookService.deleteById(id);
+    }
+}
+```
+
 #### Book Endpoints
 
 1. **Get All Books** (`GET /books`)
    - Pagination support
    - Search functionality
    - Protected route
+   - Example Response:
+   ```json
+   {
+     "books": [
+       {
+         "id": "book_id",
+         "title": "Book Title",
+         "author": "Author Name",
+         "description": "Book Description",
+         "price": 29.99,
+         "category": "FICTION"
+       }
+     ],
+     "totalPages": 10,
+     "currentPage": 1
+   }
+   ```
 
 2. **Create Book** (`POST /books`)
    - Protected route (Moderator/Admin only)
    - Required fields validation
+   - Example Request:
+   ```json
+   {
+     "title": "New Book",
+     "author": "Author Name",
+     "description": "Book Description",
+     "imageUrl": "https://example.com/image.jpg",
+     "price": 29.99,
+     "category": "FICTION"
+   }
+   ```
 
 3. **Get Book by ID** (`GET /books/:id`)
    - Protected route
    - ID validation
+   - Example Response:
+   ```json
+   {
+     "id": "book_id",
+     "title": "Book Title",
+     "author": "Author Name",
+     "description": "Book Description",
+     "price": 29.99,
+     "category": "FICTION"
+   }
+   ```
 
 4. **Update Book** (`PUT /books/:id`)
    - Protected route (Moderator/Admin only)
    - Partial updates supported
+   - Example Request:
+   ```json
+   {
+     "title": "Updated Title",
+     "price": 39.99
+   }
+   ```
 
 5. **Delete Book** (`DELETE /books/:id`)
    - Protected route
@@ -215,19 +538,198 @@ export class Book {
 
 ### 3. Borrowing Module
 
-#### Endpoints
+#### Module Setup
+```typescript
+// src/borrow/borrow.module.ts
+@Module({
+  imports: [
+    AuthModule,
+    MongooseModule.forFeature([
+      { name: 'Borrow', schema: BorrowSchema },
+      { name: 'Book', schema: BookSchema }
+    ])
+  ],
+  controllers: [BorrowController],
+  providers: [BorrowService]
+})
+export class BorrowModule {}
+```
+
+#### Borrow Schema
+```typescript
+// src/borrow/schemas/borrow.schema.ts
+@Schema()
+export class Borrow {
+    @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true })
+    user: User;
+
+    @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Book', required: true })
+    book: Book;
+
+    @Prop({ required: true })
+    borrowDate: Date;
+
+    @Prop({ required: true })
+    dueDate: Date;
+
+    @Prop({ default: false })
+    returned: boolean;
+}
+```
+
+#### Borrow DTOs
+
+1. **Borrow Book DTO**:
+```typescript
+export class BorrowBookDto {
+    @IsNotEmpty()
+    @IsString()
+    bookId: string;
+
+    @IsNotEmpty()
+    @IsDate()
+    dueDate: Date;
+}
+```
+
+2. **Return Book DTO**:
+```typescript
+export class ReturnBookDto {
+    @IsNotEmpty()
+    @IsString()
+    borrowId: string;
+}
+```
+
+#### Borrow Service Implementation
+```typescript
+// src/borrow/borrow.service.ts
+@Injectable()
+export class BorrowService {
+    constructor(
+        @InjectModel(Borrow.name) private borrowModel: Model<Borrow>,
+        @InjectModel(Book.name) private bookModel: Model<Book>
+    ) {}
+
+    async borrowBook(userId: string, borrowDto: BorrowBookDto): Promise<Borrow> {
+        const book = await this.bookModel.findById(borrowDto.bookId);
+        if (!book) {
+            throw new NotFoundException('Book not found');
+        }
+
+        const borrow = await this.borrowModel.create({
+            user: userId,
+            book: borrowDto.bookId,
+            borrowDate: new Date(),
+            dueDate: borrowDto.dueDate
+        });
+
+        return borrow;
+    }
+
+    async returnBook(userId: string, returnDto: ReturnBookDto): Promise<Borrow> {
+        const borrow = await this.borrowModel.findOne({
+            _id: returnDto.borrowId,
+            user: userId
+        });
+
+        if (!borrow) {
+            throw new NotFoundException('Borrow record not found');
+        }
+
+        borrow.returned = true;
+        return await borrow.save();
+    }
+
+    async getBorrowHistory(userId: string): Promise<Borrow[]> {
+        return await this.borrowModel
+            .find({ user: userId })
+            .populate('book')
+            .sort({ borrowDate: -1 });
+    }
+}
+```
+
+#### Borrow Controller Implementation
+```typescript
+// src/borrow/borrow.controller.ts
+@Controller('borrow')
+export class BorrowController {
+    constructor(private borrowService: BorrowService) {}
+
+    @Post()
+    @UseGuards(AuthGuard())
+    async borrowBook(
+        @Body() borrowDto: BorrowBookDto,
+        @Req() req
+    ): Promise<Borrow> {
+        return this.borrowService.borrowBook(req.user._id, borrowDto);
+    }
+
+    @Put(':id/return')
+    @UseGuards(AuthGuard())
+    async returnBook(
+        @Param('id') id: string,
+        @Req() req
+    ): Promise<Borrow> {
+        return this.borrowService.returnBook(req.user._id, { borrowId: id });
+    }
+
+    @Get('history')
+    @UseGuards(AuthGuard())
+    async getBorrowHistory(@Req() req): Promise<Borrow[]> {
+        return this.borrowService.getBorrowHistory(req.user._id);
+    }
+}
+```
+
+#### Borrow Endpoints
 
 1. **Borrow Book** (`POST /borrow`)
    - Protected route
    - Required fields: bookId, dueDate
+   - Example Request:
+   ```json
+   {
+     "bookId": "book_id",
+     "dueDate": "2024-04-01T00:00:00.000Z"
+   }
+   ```
 
 2. **Return Book** (`PUT /borrow/:id/return`)
    - Protected route
    - Book status update
+   - Example Response:
+   ```json
+   {
+     "id": "borrow_id",
+     "user": "user_id",
+     "book": "book_id",
+     "borrowDate": "2024-03-01T00:00:00.000Z",
+     "dueDate": "2024-04-01T00:00:00.000Z",
+     "returned": true
+   }
+   ```
 
 3. **Get Borrowing History** (`GET /borrow/history`)
    - Protected route
    - User-specific history
+   - Example Response:
+   ```json
+   [
+     {
+       "id": "borrow_id",
+       "book": {
+         "id": "book_id",
+         "title": "Book Title",
+         "author": "Author Name"
+       },
+       "borrowDate": "2024-03-01T00:00:00.000Z",
+       "dueDate": "2024-04-01T00:00:00.000Z",
+       "returned": true
+     }
+   ]
+   ```
 
 ## Security Features
 
