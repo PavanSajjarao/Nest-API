@@ -1,4 +1,270 @@
-# Authentication and Authorization Testing Guide
+# Authentication and Authorization System Documentation
+
+## System Overview
+
+This document outlines the comprehensive authentication and authorization system implemented in our NestJS application. The system provides a robust, secure, and feature-rich authentication solution with multiple layers of security.
+
+## Architecture Diagram
+
+```mermaid
+graph TD
+    A[Client] --> B[Auth Controller]
+    B --> C[Auth Service]
+    C --> D[JWT Strategy]
+    C --> E[User Service]
+    C --> F[Email Service]
+    C --> G[Token Service]
+    
+    D --> H[JWT Validation]
+    E --> I[MongoDB]
+    G --> I
+    F --> J[SMTP Server]
+```
+
+## Core Features
+
+### 1. Multi-Layer Authentication
+- **JWT-Based Authentication**
+  - Access tokens for short-term authentication
+  - Refresh tokens for long-term session management
+  - Token rotation for enhanced security
+  - Token revocation capabilities
+
+- **Session Management**
+  - Active session tracking
+  - Device fingerprinting
+  - IP address tracking
+  - Session timeout handling
+
+### 2. Security Features
+- **Password Security**
+  - Bcrypt hashing
+  - Password complexity requirements
+  - Password reset functionality
+  - Rate limiting on login attempts
+
+- **Token Security**
+  - JWT with asymmetric encryption
+  - Token expiration
+  - Refresh token rotation
+  - Token blacklisting
+
+### 3. User Management
+- **Registration System**
+  - Email verification
+  - Duplicate email prevention
+  - Password validation
+  - User profile creation
+
+- **Login System**
+  - Multi-factor authentication support
+  - Remember me functionality
+  - Failed login attempt tracking
+  - Account lockout protection
+
+### 4. Email Integration
+- **Email Services**
+  - Password reset emails
+  - Email verification
+  - Security notifications
+  - Account activity alerts
+
+## Technical Implementation
+
+### Authentication Flow
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as Auth Controller
+    participant S as Auth Service
+    participant DB as Database
+    participant E as Email Service
+    
+    C->>A: Login Request
+    A->>S: Validate Credentials
+    S->>DB: Check User
+    DB-->>S: User Data
+    S->>S: Generate Tokens
+    S-->>A: Access + Refresh Tokens
+    A-->>C: Response
+    
+    Note over C,S: Token Usage
+    C->>A: Protected Request
+    A->>S: Validate Token
+    S->>DB: Check Token Status
+    DB-->>S: Token Valid
+    S-->>A: Authorized
+    A-->>C: Protected Resource
+```
+
+### Authorization Flow
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as Auth Controller
+    participant J as JWT Strategy
+    participant S as Auth Service
+    participant DB as Database
+    
+    C->>A: Request with Token
+    A->>J: Validate JWT
+    J->>S: Extract User Info
+    S->>DB: Check Permissions
+    DB-->>S: User Permissions
+    S-->>J: Authorization Result
+    J-->>A: Authorized/Unauthorized
+    A-->>C: Response
+```
+
+## API Endpoints
+
+### Authentication Endpoints
+
+1. **User Registration**
+```http
+POST /auth/signup
+Content-Type: application/json
+
+{
+  "name": "Test User",
+  "email": "test@example.com",
+  "password": "Password123!"
+}
+```
+
+2. **User Login**
+```http
+POST /auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "Password123!"
+}
+```
+
+3. **Token Management**
+```http
+POST /auth/refresh-token
+Content-Type: application/json
+
+{
+  "refreshToken": "refresh_token_here"
+}
+```
+
+### Security Endpoints
+
+1. **Password Reset**
+```http
+POST /auth/forgot-password
+Content-Type: application/json
+
+{
+  "email": "test@example.com"
+}
+```
+
+2. **Session Management**
+```http
+GET /auth/sessions
+Authorization: Bearer access_token_here
+```
+
+## Security Features and Benefits
+
+### 1. Token-Based Authentication
+- **Advantages:**
+  - Stateless authentication
+  - Scalable across multiple servers
+  - Reduced database load
+  - Mobile-friendly
+
+### 2. Refresh Token Rotation
+- **Advantages:**
+  - Enhanced security through token rotation
+  - Ability to revoke compromised tokens
+  - Long-term session management
+  - Reduced risk of token theft
+
+### 3. Session Management
+- **Advantages:**
+  - Device tracking
+  - Suspicious activity detection
+  - Ability to terminate specific sessions
+  - Enhanced security monitoring
+
+### 4. Email Integration
+- **Advantages:**
+  - Secure password reset flow
+  - User verification
+  - Security notifications
+  - Account activity monitoring
+
+## Testing Scenarios
+
+### 1. Authentication Tests
+- Registration with valid/invalid data
+- Login with correct/incorrect credentials
+- Token generation and validation
+- Refresh token rotation
+- Token revocation
+
+### 2. Security Tests
+- Password reset flow
+- Session management
+- Rate limiting
+- Account lockout
+- Token expiration
+
+### 3. Authorization Tests
+- Role-based access control
+- Permission validation
+- Resource access control
+- Token validation
+- Session validation
+
+## Environment Configuration
+
+Required environment variables:
+```env
+JWT_SECRET=your_jwt_secret
+JWT_EXPIRES=1h
+REFRESH_TOKEN_EXPIRES=7d
+SMTP_HOST=your_smtp_host
+SMTP_PORT=587
+SMTP_USER=your_smtp_user
+SMTP_PASS=your_smtp_password
+SMTP_FROM=noreply@yourdomain.com
+```
+
+## Best Practices
+
+1. **Token Management**
+   - Store tokens securely
+   - Implement token rotation
+   - Use appropriate expiration times
+   - Implement token revocation
+
+2. **Password Security**
+   - Use strong password policies
+   - Implement rate limiting
+   - Hash passwords securely
+   - Regular password updates
+
+3. **Session Security**
+   - Track active sessions
+   - Implement session timeout
+   - Monitor for suspicious activity
+   - Allow session termination
+
+4. **Error Handling**
+   - Secure error messages
+   - Proper logging
+   - Rate limiting
+   - Input validation
 
 ## Prerequisites
 - [Postman](https://www.postman.com/) or any API testing tool
