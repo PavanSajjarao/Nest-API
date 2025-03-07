@@ -1,30 +1,21 @@
-import { IsNotEmpty, IsString, IsEmail, MinLength, IsOptional, IsArray, ArrayUnique, ArrayNotEmpty, IsEnum } from "class-validator";
-import { Role } from "../enums/role.enum";
-
-
-
+import { IsNotEmpty, IsString, IsEmail, MinLength, IsOptional, IsEnum } from 'class-validator';
+import { Role } from '../enums/role.enum';
 
 export class SignUpDto {
-
     @IsNotEmpty()
     @IsString()
-    readonly name: string;
+    name: string;
 
     @IsNotEmpty()
     @IsEmail()
-    readonly email: string;
+    email: string;
 
     @IsNotEmpty()
     @IsString()
     @MinLength(6)
-    readonly password: string;
+    password: string;
 
     @IsOptional()
-    @IsArray()
-    @IsEnum(Role, { each: true })
-    readonly role: string[];
-   
-
-    
-
+    @IsEnum(Role)
+    role?: Role;
 }

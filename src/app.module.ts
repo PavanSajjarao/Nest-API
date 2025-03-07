@@ -1,34 +1,23 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { BookModule } from './book/book.module';
 import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from './auth/auth.module';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { UsersModule } from './users/users.module';
 import { BorrowModule } from './borrow/borrow.module';
-import mongoose from 'mongoose';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
-    // ThrottlerModule.forRoot([
-    //   {
-    //     ttl: 5, // Time window in seconds time to live
-    //     limit: 3, // Max requests in time window 3 req.
-    //   },
-    // ]),
     ConfigModule.forRoot({
-      envFilePath: '.env',
       isGlobal: true,
     }),
-    MongooseModule.forRoot(process.env.DB_URI || ''),
-    BookModule,
+    MongooseModule.forRoot(process.env.DB_URI || 'mongodb://localhost:27017/nest-api'),
     AuthModule,
+    UsersModule,
     BorrowModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {
- 
-}
+export class AppModule {}

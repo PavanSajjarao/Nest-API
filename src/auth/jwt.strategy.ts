@@ -2,34 +2,50 @@ import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { PassportStrategy } from "@nestjs/passport";
 import { ExtractJwt, Strategy } from "passport-jwt"; 
-import { User } from "./schemas/user.schema";
+import { User } from "../users/schemas/user.schema";
 import { Model } from "mongoose";
 
-
-
 @Injectable()
-
-export class JwtStrategy extends PassportStrategy(Strategy){
+export class JwtStrategy extends PassportStrategy(Strategy) {
     constructor(
         @InjectModel(User.name)
         private userModel: Model<User>
     ){
         super({
             jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-            secretOrKey: process.env.JWT_SECRET
-        })
+            secretOrKey: process.env.JWT_SECRET,
+            ignoreExpiration: false, // Ensure token expiration is checked
+            passReqToCallback: true, // Pass request object to validate method
+        });
     }
 
-    //The validate function in the JwtStrategy class is not explicitly called by you because it's automatically invoked by Passport when it validates a JWT (JSON Web Token).
+    async validate(req: any, payload: any) {
+        // Check if token is blacklisted (you'll need to implement token blacklist)
+        // const isBlacklisted = await this.authService.isTokenBlacklisted(req.token);
+        // if (isBlacklisted) {
+        //     throw new UnauthorizedException('Token has been revoked');
+        // }
 
-    async validate(payload:any){
-        const {id} = payload;
-        const user = await this.userModel.findById(id);
-        console.log("Validating Function Called");
-        if(!user){
-           throw new UnauthorizedException(); //these exception will arise when user send valid token but in that user id is wrong then this exception arises.
+        // Validate user existence and status
+        const user = await this.userModel.findById(payload.id);
+        if (!user) {
+            throw new UnauthorizedException('User not found');
         }
 
+        if (!user.isActive) {
+            throw new UnauthorizedException('User account is deactivated');
+        }
+
+        // Check if token was issued before password change
+        if (user.passwordChangedAt) {
+            const passwordChangedTime = user.passwordChangedAt.getTime() / 1000;
+            if (payload.iat < passwordChangedTime) {
+                throw new UnauthorizedException('Password has been changed. Please login again');
+            }
+        }
+
+        // Add user roles to request object for role-based authorization
+        req.user = user;
         return user;
     }
 }

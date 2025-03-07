@@ -4,7 +4,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Book } from './schemas/book.schema';
 import { Query as ExpressQuery } from 'express-serve-static-core';
-import { User } from 'src/auth/schemas/user.schema';
+import { User } from '../users/schemas/user.schema';
 import { CreateBookDto } from './dto/create-book.dto';
 
 @Injectable()
