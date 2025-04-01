@@ -4,13 +4,17 @@ import { BookService } from './book.service';
 import { MongooseModule } from '@nestjs/mongoose';
 import { BookSchema } from './schemas/book.schema';
 import { AuthModule } from '../auth/auth.module';
+import { PassportModule } from '@nestjs/passport';
+
 // import { APP_GUARD } from '@nestjs/core';
 // import { ThrottlerGuard } from '@nestjs/throttler';
  
 @Module({
   imports:[ 
     AuthModule,
-    MongooseModule.forFeature([{name:'Book' , schema:BookSchema}])],
+    MongooseModule.forFeature([{name:'Book' , schema:BookSchema}]),
+    PassportModule
+  ],
   controllers: [BookController],
   providers: [
     BookService,

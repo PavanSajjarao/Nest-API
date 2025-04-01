@@ -22,6 +22,7 @@ export class AuthService {
         const { name, email, password, role } = signUpDto;
     
         const existingUser = await this.userModel.findOne({ email });
+        
         if (existingUser && existingUser.isActive) {
             throw new ConflictException('Email is already in use');
         }

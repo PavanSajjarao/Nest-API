@@ -2,8 +2,7 @@ import { Controller, Post, Body , Param , Delete , Put , Get } from '@nestjs/com
 import { AuthService } from './auth.service';
 import { SignUpDto } from './dto/signUp.dto';
 import { LoginDto } from './dto/login.dto';
-
-
+import { PassportStrategy } from "@nestjs/passport";
 
 @Controller('auth')
 export class AuthController {
